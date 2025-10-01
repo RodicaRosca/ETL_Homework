@@ -1,0 +1,126 @@
+SELECT
+    e.full_name,
+    d.full_date AS activity_date,
+    a.activity_type,
+    ev.title         AS meeting_title,
+    ar.reason_label  AS absence_reason,
+    f.hours_worked,
+    f.attended,
+    f.notes,
+    f.check_in_time,
+    f.check_out_time
+FROM activity_fact f
+JOIN employee_dim e           ON f.employee_sk = e.employee_sk
+JOIN date_dim d               ON f.date_id = d.date_id
+JOIN activity_type_dim a      ON f.activity_type_sk = a.activity_type_sk
+LEFT JOIN event_dim ev        ON f.event_id = ev.event_id
+LEFT JOIN absence_reason_dim ar ON f.absence_reason_id = ar.reason_id
+WHERE e.employee_id = 7             -- Replace 5 with any employee_id
+AND d.full_date = '25-JUN-25'
+ORDER BY a.activity_type, ev.title, d.full_date;
+
+SELECT
+    e.full_name,
+    d.full_date AS activity_date,
+    a.activity_type,
+    ev.title         AS meeting_title,
+    ar.reason_label  AS absence_reason,
+    f.hours_worked,
+    f.attended,
+    f.notes,
+    f.check_in_time,
+    f.check_out_time
+FROM activity_fact f
+JOIN employee_dim e              ON f.employee_sk = e.employee_sk
+JOIN date_dim d                  ON f.date_id = d.date_id
+JOIN activity_type_dim a         ON f.activity_type_sk = a.activity_type_sk
+LEFT JOIN event_dim ev           ON f.event_id = ev.event_id
+LEFT JOIN absence_reason_dim ar  ON f.absence_reason_id = ar.reason_id
+WHERE e.employee_id = 9
+  AND d.full_date BETWEEN TO_DATE('2025-06-01', 'YYYY-MM-DD') AND TO_DATE('2025-06-30', 'YYYY-MM-DD')
+ORDER BY d.full_date, a.activity_type, ev.title;
+
+------------ absences all
+SELECT
+    e.full_name,
+    a.activity_type,
+    ar.reason_label AS absence_reason,
+    COUNT(*) AS activity_count,
+    SUM(f.hours_worked) AS total_hours,
+    SUM(CASE WHEN f.attended = 'Y' THEN 1 ELSE 0 END) AS trainings_attended
+FROM activity_fact f
+JOIN employee_dim e              ON f.employee_sk = e.employee_sk
+JOIN date_dim d                  ON f.date_id = d.date_id
+JOIN activity_type_dim a         ON f.activity_type_sk = a.activity_type_sk
+LEFT JOIN absence_reason_dim ar  ON f.absence_reason_id = ar.reason_id
+GROUP BY e.full_name, a.activity_type, ar.reason_label
+ORDER BY e.full_name, a.activity_type, ar.reason_label;
+
+------------some days
+
+SELECT
+    e.full_name,
+    d.full_date             AS activity_date,
+    a.activity_type,
+    ev.title                AS training_title,
+    ar.reason_label         AS absence_reason,
+    f.hours_worked,
+    f.attended,
+    f.notes,
+    f.check_in_time,
+    f.check_out_time
+FROM activity_fact f
+JOIN employee_dim e              ON f.employee_sk = e.employee_sk
+JOIN date_dim d                  ON f.date_id = d.date_id
+JOIN activity_type_dim a         ON f.activity_type_sk = a.activity_type_sk
+LEFT JOIN event_dim ev           ON f.event_id = ev.event_id
+LEFT JOIN absence_reason_dim ar  ON f.absence_reason_id = ar.reason_id
+WHERE e.employee_id = 10    
+ORDER BY d.full_date, a.activity_type, ev.title, ar.reason_label;
+
+------------------ modify employee
+
+UPDATE employee_dim
+SET is_current = 'N',
+    record_end = SYSDATE
+WHERE employee_id = 5
+  AND is_current = 'Y';
+
+INSERT INTO employee_dim (
+    employee_id,
+    full_name,
+    buddy,
+    line_manager,
+    discipline,
+    delivery_unit,
+    grade,
+    record_start,
+    record_end,
+    is_current
+)
+SELECT
+    employee_id,
+    full_name,
+    buddy,
+    line_manager,
+    discipline,
+    delivery_unit,
+    'Senior Data Engineer' AS grade,
+    SYSDATE                AS record_start,
+    NULL                   AS record_end,
+    'Y'                    AS is_current
+FROM employee_dim
+WHERE employee_id = 5
+  AND is_current = 'N'
+  AND ROWNUM = 1 -- In case multiple past records, take the latest
+ORDER BY record_end DESC;
+
+SELECT
+    MAX(CASE WHEN is_current = 'Y' THEN grade END) AS current_role,
+    MAX(CASE WHEN is_current = 'N' THEN grade END) AS previous_role,
+    MAX(CASE WHEN is_current = 'N' THEN record_end END) AS previous_role_end
+FROM employee_dim
+WHERE employee_id = 5;
+
+
+
